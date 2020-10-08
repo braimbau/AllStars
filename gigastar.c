@@ -1,63 +1,45 @@
 #include <libc.h>
 #include <dirent.h>
 
-char			*ft_strcat(char *dest, char *src, int i)
-{
-	unsigned int j;
-
-	j = 0;
-	if (src == NULL)
-		return (NULL);
-	while (src[j] != '\0')
-	{
-		dest[i + j] = src[j];
-		j++;
-	}
-	dest[i + j] = '\0';
-	return (dest);
-}
-
-char			*ft_strcpy(char *dest, char *src)
-{
-	unsigned int i;
-
-	i = 0;
-	while (src[i] != '\0')
-	{
-		dest[i] = src[i];
-		i++;
-	}
-	return (dest);
-}
-
-static int		ft_strlen(char *str)
+int		ft_strlen(char *str)
 {
 	int i;
 
 	i = 0;
-	while (str[i] != '\0')
+	while (str && str[i] != '\0')
 		i++;
 	return (i);
 }
 
-char			*ft_strjoin(const char *s1, const char *s2)
+char			*ft_strjoin_sep(char *s1, char *s2, char c)
 {
 	int		i;
-	int		j;
+	int		x;
 	char	*dest;
-	char	*str1;
-	char	*str2;
 
-	str1 = (char *)s1;
-	str2 = (char *)s2;
-	i = ft_strlen(str1);
-	j = ft_strlen(str2);
-	dest = malloc(sizeof(char) * (i + j + 1));
+	i = ft_strlen(s1) + ft_strlen(s2);
+	dest = malloc(sizeof(char) * (i + 1 + (c) ? 1 : 0));
 	if (!dest)
 		return (NULL);
-	dest = ft_strcpy(dest, str1);
-	dest = ft_strcat(dest, str2, i);
-	dest[i + j + 1] = '\0';
+	x = 0;
+	while (s1 && s1[x])
+	{
+		dest[x] = s1[x];
+		x++;
+	}
+	if (c)
+	{
+		dest[x] = c;
+		x++;
+	}
+	i = 0;
+	while (s2 && s2[i])
+	{
+		dest[x] = s2[i];
+		x++;
+		i++;
+	}
+	dest[x] = 0;
 	return (dest);
 }
 
@@ -174,17 +156,12 @@ int recursive(char * str, char * patern, int rc, int xp, int xs)
 
 int superstar(char *str, char *patern)
 {
-	char *actual;
 	int rc;
 	int ret;
 
 	removedoublestars(&patern);
-	actual = malloc(sizeof(char) * (strlen(str) + 1 ));
-	actual[0] = 0;
-
 	rc = strlen(str) - (strlen(patern) - numberstars(patern));
 	ret = recursive(str, patern, rc, 0, 0);
-	free(actual);
 	return (ret);
 }
 
@@ -193,7 +170,6 @@ int megastar(char *patern, char *path, char *minipath)
 	DIR *dir;
 	struct dirent *dirent;
 	char *pathedname;
-	char *tmp;
 
 	dir = opendir(path);
 	if (dir == NULL)
@@ -204,11 +180,8 @@ int megastar(char *patern, char *path, char *minipath)
 		{
 			if (minipath)
 			{
-				pathedname = ft_strjoin(minipath, "/");
-				tmp = pathedname;
-				pathedname = ft_strjoin(pathedname, dirent->d_name);
+				pathedname = ft_strjoin_sep(minipath, dirent->d_name, '/');
 				printf("%s ", pathedname);
-				free(tmp);
 				free(pathedname);
 			}
 			else
@@ -226,7 +199,6 @@ int recurdir(char *patern, char *path, char *minipath)
 	char *dirname;
 	char *newpatern;
 	char *newpath;
-	char *tmp;
 
 	if (srcchar('/', patern) == -1)
 		return(megastar(patern, path, minipath));
@@ -240,22 +212,17 @@ int recurdir(char *patern, char *path, char *minipath)
 		{
 			newpatern = ft_substr(patern, srcchar('/', patern) + 1,
 					ft_strlen(patern) - srcchar('/', patern) + 1);
-			newpath = ft_strjoin(path, "/");
-			tmp = newpath;
-			newpath = ft_strjoin(newpath, dirent->d_name);
-			free(tmp);
+			newpath = ft_strjoin_sep(path, dirent->d_name, '/');
 			if (minipath)
 			{
-				minipath = ft_strjoin(minipath, "/");
-				tmp = minipath;
-				minipath = ft_strjoin(minipath, dirent->d_name);
-				free(tmp);
+				minipath = ft_strjoin_sep(minipath, dirent->d_name, '/');
 				recurdir(newpatern, newpath, minipath);
 				free(minipath);
 			}
 			else
 				recurdir(newpatern, newpath, dirent->d_name);
-			free(newpatern);
+			printf("::%s %s\n", newpatern, newpath);
+			//free(newpatern);
 			free(newpath);
 		}
 	}
