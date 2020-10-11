@@ -1,6 +1,119 @@
 #include <libc.h>
 #include <dirent.h>
 
+char *recurdir(char *patern, char *path, char *minipath);
+
+int	ft_strcmp(char *s1, char *s2)
+{
+	unsigned int i;
+
+	i = 0;
+	while (s1[i] && s2[i])
+	{
+		if (s1[i] != s2[i])
+			return((unsigned char)s1[i] - s2[i]);
+		i++;
+	}
+	if ((s1[i] && !s2[i]) || (!s1[i] && s2[i]))
+		return((unsigned char)s1[i] - s2[i]);
+	return (0);
+}
+
+int	ft_strcmpdsm(char *s1, char *s2)
+{
+	unsigned int i;
+
+	i = 0;
+	while (s1[i] && s2[i])
+	{
+		if (s1[i] != s2[i])
+			return((unsigned char)s1[i] - s2[i]);
+		i++;
+	}
+	if (!s1[i] && s2[i] == '.')
+		return (1);
+	if (!s2[i] && s1[i] == '.')
+		return (-1);
+	if ((s1[i] && !s2[i]) || (!s1[i] && s2[i]))
+		return((unsigned char)s1[i] - s2[i]);
+	return (0);
+}
+typedef struct	s_list
+{
+	char *name;
+	struct s_list *next;
+}				t_list;
+
+t_list *new_maillon(t_list *actual, char *name)
+{
+	t_list *list;
+
+		list = malloc(sizeof(t_list));
+		list->name = name;
+		list->next = actual;
+		return(list);
+}
+
+void free_list(t_list *a)
+{
+	if (a)
+	{
+		free_list(a->next);
+		free(a);
+	}
+}
+
+void sort_list(t_list *actual)
+{
+	t_list *a;
+	t_list *b;
+	char *tmp;
+
+	if (!actual || !actual->next)
+		return;
+	a = actual;
+	while (a)
+	{
+		b = a->next;
+		while (b)
+		{
+			if (ft_strcmp(a->name, b->name) > 0)
+			{
+				tmp = a->name;
+				a->name = b->name;
+				b->name = tmp;
+			}
+			b = b->next;
+		}
+		a = a->next;
+	}
+}
+
+void sort_list_dsm(t_list *actual)
+{
+	t_list *a;
+	t_list *b;
+	char *tmp;
+
+	if (!actual || !actual->next)
+		return;
+	a = actual;
+	while (a)
+	{
+		b = a->next;
+		while (b)
+		{
+			if (ft_strcmpdsm(a->name, b->name) > 0)
+			{
+				tmp = a->name;
+				a->name = b->name;
+				b->name = tmp;
+			}
+			b = b->next;
+		}
+		a = a->next;
+	}
+}
 int		ft_strlen(char *str)
 {
 	int i;
@@ -18,7 +131,7 @@ char			*ft_strjoin_sep(char *s1, char *s2, char c)
 	char	*dest;
 
 	i = ft_strlen(s1) + ft_strlen(s2);
-	dest = malloc(sizeof(char) * (i + 1 + (c) ? 1 : 0));
+	dest = malloc(sizeof(char) * (i + 2));
 	if (!dest)
 		return (NULL);
 	x = 0;
@@ -165,12 +278,34 @@ int superstar(char *str, char *patern)
 	return (ret);
 }
 
+void print_list(t_list *actual, char *minipath)
+{
+	char *pathedname;
+
+	while (actual)
+	{
+			if (minipath)
+			{
+				pathedname = ft_strjoin_sep(minipath, actual->name, '/');
+				printf("%s ", pathedname);
+				free(pathedname);
+			}
+			else
+				printf("%s ", actual->name);
+
+		actual = actual->next;
+	}
+}
+
 int megastar(char *patern, char *path, char *minipath)
 {
 	DIR *dir;
 	struct dirent *dirent;
-	char *pathedname;
+	(void)minipath;
+	t_list *list;
+	t_list *actual;
 
+	actual = NULL;
 	dir = opendir(path);
 	if (dir == NULL)
 		return (1);
@@ -178,28 +313,56 @@ int megastar(char *patern, char *path, char *minipath)
 	{
 		if (superstar(dirent->d_name, patern))
 		{
-			if (minipath)
-			{
-				pathedname = ft_strjoin_sep(minipath, dirent->d_name, '/');
-				printf("%s ", pathedname);
-				free(pathedname);
-			}
-			else
-				printf("%s ", dirent->d_name);
+			list = malloc(sizeof(t_list));
+			list->name = dirent->d_name;
+			list->next = actual;
+			actual = list;
 		}
 	}
+	sort_list(actual);
+	print_list(actual, minipath);
+	free_list(actual);
 	closedir(dir);
 	return (0);
 }
 
-int recurdir(char *patern, char *path, char *minipath)
+void throughdir(char *minipath, char *patern, char *path, t_list *a)
+{
+	while (a)
+	{
+		char *newpatern;
+		char *newpath;
+		(void)patern;
+		(void)path;
+
+		newpatern = ft_substr(patern, srcchar('/', patern) + 1,
+		ft_strlen(patern) - srcchar('/', patern) + 1);
+		newpath = ft_strjoin_sep(path, a->name, '/');
+		if ( minipath)
+		{
+			minipath = ft_strjoin_sep(minipath, a->name, '/');
+			recurdir(newpatern, newpath, minipath);
+			free(minipath);
+		}
+		else 
+			recurdir(newpatern, newpath, a->name);
+		free(newpatern);
+		free(newpath);
+		a = a->next;
+	}
+}
+
+
+
+char	*recurdir(char *patern, char *path, char *minipath)
 {
 	DIR *dir;
 	struct dirent *dirent;
 	char *dirname;
-	char *newpatern;
-	char *newpath;
+	t_list *actual;
+	char *ret;
 
+	actual = NULL;
 	if (srcchar('/', patern) == -1)
 		return(megastar(patern, path, minipath));
 	dir = opendir(path);
@@ -210,24 +373,14 @@ int recurdir(char *patern, char *path, char *minipath)
 	{
 		if (dirent->d_type == 4 && superstar(dirent->d_name, dirname))
 		{
-			newpatern = ft_substr(patern, srcchar('/', patern) + 1,
-					ft_strlen(patern) - srcchar('/', patern) + 1);
-			newpath = ft_strjoin_sep(path, dirent->d_name, '/');
-			if (minipath)
-			{
-				minipath = ft_strjoin_sep(minipath, dirent->d_name, '/');
-				recurdir(newpatern, newpath, minipath);
-				free(minipath);
-			}
-			else
-				recurdir(newpatern, newpath, dirent->d_name);
-			printf("::%s %s\n", newpatern, newpath);
-			//free(newpatern);
-			free(newpath);
+			actual = new_maillon(actual, dirent->d_name);
 		}
 	}
+	sort_list_dsm(actual);
+	ret = throughdir(minipath, patern, path, actual);
+	free_list(actual);
 	free(dirname);
-	return (0);
+	return (ret);
 }
 
 int main(int ac, char **ag)
@@ -235,6 +388,7 @@ int main(int ac, char **ag)
 	char *patern;
 	char *path;
 	char *minipath;
+	char *ret;
 
 	(void)ac;
 	minipath = NULL;
@@ -242,10 +396,7 @@ int main(int ac, char **ag)
 	path = malloc(sizeof(char) * 500);
 	getcwd(path, 500);
 	if (path == NULL)
-	{
-		printf("error : path too long\n");
 		return (1);
-	}
-	recurdir(patern, path, minipath);
+	ret = recurdir(patern, path, minipath);
 	free(path);
 }
