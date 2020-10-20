@@ -1,7 +1,35 @@
 #include <libc.h>
 #include <dirent.h>
 
-char *recurdir(char *patern, char *path, char *minipath);
+int	recurdir(char *patern, char *path, char *minipath, char **final);
+
+int ft_strlen(char *str)
+{
+	int i;
+
+	i = 0;
+	while (str && str[i])
+		i++;
+	return (i);
+}
+
+char	*ft_strdup(char *s1)
+{
+	char	*a;
+	int		i;
+
+	a = malloc((ft_strlen(s1) + 1) * sizeof(*s1));
+	if (a == NULL)
+		return (0);
+	i = 0;
+	while (s1[i] != '\0')
+	{
+		a[i] = s1[i];
+		i++;
+	}
+	a[i] = '\0';
+	return (a);
+}
 
 int	ft_strcmp(char *s1, char *s2)
 {
@@ -44,6 +72,15 @@ typedef struct	s_list
 	struct s_list *next;
 }				t_list;
 
+void print_list(t_list *a)
+{
+	while (a)
+	{
+		printf("%s\n", a->name);
+		a = a->next;
+	}
+}
+
 t_list *new_maillon(t_list *actual, char *name)
 {
 	t_list *list;
@@ -59,6 +96,7 @@ void free_list(t_list *a)
 	if (a)
 	{
 		free_list(a->next);
+		free(a->name);
 		free(a);
 	}
 }
@@ -114,15 +152,6 @@ void sort_list_dsm(t_list *actual)
 		a = a->next;
 	}
 }
-int		ft_strlen(char *str)
-{
-	int i;
-
-	i = 0;
-	while (str && str[i] != '\0')
-		i++;
-	return (i);
-}
 
 char			*ft_strjoin_sep(char *s1, char *s2, char c)
 {
@@ -140,11 +169,8 @@ char			*ft_strjoin_sep(char *s1, char *s2, char c)
 		dest[x] = s1[x];
 		x++;
 	}
-	if (c)
-	{
-		dest[x] = c;
-		x++;
-	}
+	dest[x] = c;
+	x++;
 	i = 0;
 	while (s2 && s2[i])
 	{
@@ -278,26 +304,33 @@ int superstar(char *str, char *patern)
 	return (ret);
 }
 
-void print_list(t_list *actual, char *minipath)
+void add_list(t_list *actual, char *minipath, char **final)
 {
 	char *pathedname;
+	char *tmp;
 
 	while (actual)
 	{
-			if (minipath)
-			{
-				pathedname = ft_strjoin_sep(minipath, actual->name, '/');
-				printf("%s ", pathedname);
-				free(pathedname);
-			}
-			else
-				printf("%s ", actual->name);
-
+		if (minipath)
+			pathedname = ft_strjoin_sep(minipath, actual->name, '/');
+		else
+			pathedname = ft_strdup(actual->name);
+		tmp = *final;		
+		if (*final == NULL)
+		{
+			*final = pathedname;
+		}
+		else
+		{
+			*final = ft_strjoin_sep(*final, pathedname, ' ');
+		//	free(tmp);
+		//	free(pathedname);
+		}
 		actual = actual->next;
 	}
 }
 
-int megastar(char *patern, char *path, char *minipath)
+int megastar(char *patern, char *path, char *minipath, char **final)
 {
 	DIR *dir;
 	struct dirent *dirent;
@@ -314,73 +347,81 @@ int megastar(char *patern, char *path, char *minipath)
 		if (superstar(dirent->d_name, patern))
 		{
 			list = malloc(sizeof(t_list));
-			list->name = dirent->d_name;
+			list->name = ft_strdup(dirent->d_name);
 			list->next = actual;
 			actual = list;
 		}
 	}
 	sort_list(actual);
-	print_list(actual, minipath);
+	add_list(actual, minipath, final);
 	free_list(actual);
 	closedir(dir);
 	return (0);
 }
 
-void throughdir(char *minipath, char *patern, char *path, t_list *a)
+void throughdir(char *multipath, char *patern, t_list *a, char **final)
 {
+	char *path;
+	char *minipath = multipath;
+
+	path = multipath + ft_strlen(multipath) + 1;
 	while (a)
 	{
 		char *newpatern;
 		char *newpath;
-		(void)patern;
-		(void)path;
 
 		newpatern = ft_substr(patern, srcchar('/', patern) + 1,
 		ft_strlen(patern) - srcchar('/', patern) + 1);
 		newpath = ft_strjoin_sep(path, a->name, '/');
-		if ( minipath)
+		if (minipath[0])
 		{
 			minipath = ft_strjoin_sep(minipath, a->name, '/');
-			recurdir(newpatern, newpath, minipath);
-			free(minipath);
+			recurdir(newpatern, newpath, minipath, final);
+		//	free(minipath);
 		}
 		else 
-			recurdir(newpatern, newpath, a->name);
-		free(newpatern);
-		free(newpath);
+			recurdir(newpatern, newpath, a->name, final);
+	//	free(newpatern);
+//		free(newpath);
 		a = a->next;
 	}
+//	free(multipath);
 }
 
 
 
-char	*recurdir(char *patern, char *path, char *minipath)
+int	recurdir(char *patern, char *path, char *minipath, char **final)
 {
 	DIR *dir;
 	struct dirent *dirent;
 	char *dirname;
 	t_list *actual;
-	char *ret;
 
 	actual = NULL;
 	if (srcchar('/', patern) == -1)
-		return(megastar(patern, path, minipath));
+		return(megastar(patern, path, minipath, final));
 	dir = opendir(path);
 	if (dir == NULL)
 		return (1);
 	dirname = ft_substr(patern, 0, srcchar('/', patern));
 	while ((dirent = readdir(dir)) != NULL)
-	{
 		if (dirent->d_type == 4 && superstar(dirent->d_name, dirname))
-		{
 			actual = new_maillon(actual, dirent->d_name);
-		}
-	}
 	sort_list_dsm(actual);
-	ret = throughdir(minipath, patern, path, actual);
-	free_list(actual);
-	free(dirname);
-	return (ret);
+	throughdir(ft_strjoin_sep(minipath,path, '\0'), patern, actual, final);
+//	free_list(actual);
+//	free(dirname);
+	return (0);
+}
+
+void nsm(char *str)
+{
+	int i = 0;
+	while (str[i])
+	{
+		printf("%c = %d\n", str[i],(int) str[i]);
+		i++;
+	}
 }
 
 int main(int ac, char **ag)
@@ -388,8 +429,9 @@ int main(int ac, char **ag)
 	char *patern;
 	char *path;
 	char *minipath;
-	char *ret;
+	char *final;
 
+	final = NULL;
 	(void)ac;
 	minipath = NULL;
 	patern = ag[1];	
@@ -397,6 +439,9 @@ int main(int ac, char **ag)
 	getcwd(path, 500);
 	if (path == NULL)
 		return (1);
-	ret = recurdir(patern, path, minipath);
-	free(path);
+	recurdir(patern, path, minipath, &final);
+	final = ft_strjoin_sep(final, NULL, '\n');
+	//printf("%s %d %c", final, (int)final[1], (unsigned char)final[1]);
+	nsm(final);
+//	free(path);
 }
